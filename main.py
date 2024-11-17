@@ -237,12 +237,15 @@ async def shinyhelp(ctx):
         "Clears all shiny hunts from your list.\n\n"
         "✅ **!completehunt <hunt name>**\n"
         "Marks a Shiny Hunt as completed without removing it from your list. Use this command when you catch the shiny Pokémon.\n\n"
+        "🎲 **!random**\n"
+        "Picks a random Shiny Hunt from your list.\n\n"
         "ℹ️ **!shinyhelp**\n"
         "Shows this help message with all available commands and their usage.\n\n"
         "👥 **!allshiny**\n"
         "Shows a list of all users who have at least one Shiny Hunt in their list."
     )
     await ctx.send(help_message)
+
 
 
 # Cargar las listas de Shiny Hunts desde el archivo al iniciar el bot
