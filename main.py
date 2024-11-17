@@ -84,11 +84,12 @@ async def shinylist(ctx, member: discord.Member = None):
         shiny_hunts[str(member.id)] = []  # Crea la lista si no existe
 
     if shiny_hunts[str(member.id)]:
-        hunts = "\n".join([f"{hunt[0]} {get_pokemon_emoji(hunt[1])} ({hunt[1]})" for hunt in shiny_hunts[str(member.id)]])  # Mostrar tipo de shiny con emoji
+        # Mostrar tipo de shiny con emoji sin repetir Pokémon
+        hunts = "\n".join([f"{hunt[0]} {get_pokemon_emoji(hunt[1][0])} ({', '.join(hunt[1])})" for hunt in shiny_hunts[str(member.id)]])
         await ctx.send(decorate_message(f"{member.display_name}'s Shiny Hunts list:\n{hunts}"))
     else:
         await ctx.send(decorate_message(f"{member.display_name} has no Shiny Hunts in their list."))
-
+        
 # Comando para ver todos los usuarios con listas de Shiny Hunts
 @bot.command()
 async def allshiny(ctx):
@@ -110,8 +111,18 @@ async def addshiny(ctx, *, hunt: str):
 
     if pokemon_types:
         hunt_type = "Singles"  # Asumimos que el hunt es tipo "Singles" por defecto
-        for pokemon_type in pokemon_types:
-            shiny_hunts[str(user.id)].append((hunt, pokemon_type))  # Añade el Shiny Hunt con su tipo
+
+        # Verifica si el Pokémon ya está en la lista con algún tipo, si es así, actualiza la entrada
+        found = False
+        for existing_hunt in shiny_hunts[str(user.id)]:
+            if existing_hunt[0] == hunt:
+                existing_hunt[1].extend([t for t in pokemon_types if t not in existing_hunt[1]])  # Añadir tipos nuevos si no existen
+                found = True
+                break
+        
+        if not found:
+            shiny_hunts[str(user.id)].append((hunt, pokemon_types))  # Añade el Shiny Hunt con todos sus tipos
+
         save_shiny_hunts()  # Guarda el archivo JSON
         await ctx.send(decorate_message(f"✅ You have added the Shiny Hunt '{hunt}' {get_pokemon_emoji(pokemon_types[0])} ({', '.join(pokemon_types)}) to your list!"))
     else:
