@@ -111,20 +111,24 @@ async def randomhunt(ctx):
 @bot.command()
 async def completehunt(ctx, *, hunt: str):
     user = ctx.author
-    
+    print(f"Completing hunt for {hunt}...")  # Depuración
+
     if str(user.id) not in shiny_hunts or hunt not in [h[0] for h in shiny_hunts[str(user.id)]]:
-        await ctx.send(f"❌ You don't have a Shiny Hunt for '{hunt}' in your list.")
+        print(f"Hunt {hunt} not found in list.")  # Depuración
+        await ctx.send(decorate_message(f"❌ You don't have a Shiny Hunt for '{hunt}' in your list."))
         return
-    
+
     hunt_data = next(h for h in shiny_hunts[str(user.id)] if h[0] == hunt)
-    
-    if 'completed' in hunt_data:
-        await ctx.send(f"❌ The Shiny Hunt for '{hunt}' is already marked as completed.")
+
+    if 'completed' in hunt_data:  
+        print(f"Hunt {hunt} already completed.")  # Depuración
+        await ctx.send(decorate_message(f"❌ The Shiny Hunt for '{hunt}' is already marked as completed."))
     else:
-        hunt_data.append('completed')
-        save_shiny_hunts()
-        await ctx.send(f"✅ The Shiny Hunt for '{hunt}' has been marked as completed!")
-    
+        hunt_data.append('completed')  
+        save_shiny_hunts()  
+        print(f"Hunt {hunt} marked as completed.")  # Depuración
+        await ctx.send(decorate_message(f"✅ The Shiny Hunt for '{hunt}' has been marked as completed!"))
+
 @bot.command()
 async def shinylist(ctx, member: discord.Member = None):
     if member is None:
@@ -156,34 +160,36 @@ async def allshiny(ctx):
             all_hunts += f"{user.display_name}: No Shiny Hunts.\n\n"
     
     await ctx.send(f"✨ **All Shiny Hunts**:\n{all_hunts}")
-    
+
 # Comando para agregar un Shiny Hunt
 @bot.command()
 async def addshiny(ctx, *, hunt: str):
     user = ctx.author
+    print(f"Adding shiny hunt for {hunt}...")  # Depuración
     if str(user.id) not in shiny_hunts:
-        shiny_hunts[str(user.id)] = []
+        shiny_hunts[str(user.id)] = []  # Crea la lista si no existe
 
     pokemon_types = get_pokemon_type(hunt)
 
     if pokemon_types:
         hunt_type = "Singles"
-
         found = False
         for existing_hunt in shiny_hunts[str(user.id)]:
             if existing_hunt[0] == hunt:
                 existing_hunt[1].extend([t for t in pokemon_types if t not in existing_hunt[1]])
                 found = True
                 break
-        
+
         if not found:
-            shiny_hunts[str(user.id)].append((hunt, pokemon_types))
+            shiny_hunts[str(user.id)].append((hunt, pokemon_types)) 
 
-        save_shiny_hunts()
-        await ctx.send(f"✅ You have added the Shiny Hunt '{hunt}' {', '.join([get_pokemon_emoji(t) for t in pokemon_types])} ({', '.join(pokemon_types)}) to your list!")
+        save_shiny_hunts()  
+        print(f"Hunt added for {hunt}")  # Depuración
+        await ctx.send(decorate_message(f"✅ You have added the Shiny Hunt '{hunt}' {get_pokemon_emoji(pokemon_types[0])} ({', '.join(pokemon_types)}) to your list!"))
     else:
-        await ctx.send(f"❌ The Pokémon '{hunt}' could not be found. Please make sure the name is correct.")
-
+        print(f"Could not find Pokémon {hunt}")  # Depuración
+        await ctx.send(decorate_message(f"❌ The Pokémon '{hunt}' could not be found. Please make sure the name is correct."))
+        
 # Comando para eliminar un Shiny Hunt
 @bot.command()
 async def removeshiny(ctx, *, hunt: str):
