@@ -6,6 +6,7 @@ import signal
 import asyncio
 import requests  # Para hacer solicitudes HTTP a la PokeAPI
 import webserver
+import random
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
@@ -74,6 +75,58 @@ def get_pokemon_type(pokemon_name):
     else:
         return None  # Si no se encuentra el Pokémon
 
+
+@bot.command()
+@commands.has_permissions(administrator=True)  # Solo los administradores pueden usar este comando
+async def clearuserlist(ctx, member: discord.Member):
+    if str(member.id) in shiny_hunts:
+        shiny_hunts[str(member.id)] = []  # Limpia la lista del usuario
+        save_shiny_hunts()  # Guarda el archivo JSON
+        await ctx.send(decorate_message(f"🧹 The Shiny Hunt list of {member.display_name} has been cleared!"))
+    else:
+        await ctx.send(decorate_message(f"❌ {member.display_name} has no Shiny Hunt list to clear."))
+
+
+@bot.command()
+async def randomhunt(ctx):
+    # Lista de Pokémon aleatorios para el hunt
+    random_pokemons = ["Pikachu", "Charizard", "Bulbasaur", "Squirtle", "Eevee", "Snorlax"]
+    random_pokemon = random.choice(random_pokemons)
+    
+    # Obtiene los tipos del Pokémon
+    pokemon_types = get_pokemon_type(random_pokemon)
+
+    if pokemon_types:
+        # Agrega el hunt a la lista del usuario
+        user = ctx.author
+        if str(user.id) not in shiny_hunts:
+            shiny_hunts[str(user.id)] = []
+
+        shiny_hunts[str(user.id)].append((random_pokemon, pokemon_types))
+        save_shiny_hunts()
+        await ctx.send(decorate_message(f"✅ You have added a random Shiny Hunt for '{random_pokemon}' {get_pokemon_emoji(pokemon_types[0])} ({', '.join(pokemon_types)}) to your list!"))
+    else:
+        await ctx.send(decorate_message(f"❌ Could not fetch details for the Pokémon '{random_pokemon}'."))
+
+@bot.command()
+async def completehunt(ctx, *, hunt: str):
+    user = ctx.author
+    
+    # Verifica si el usuario tiene esa entrada en la lista de Shiny Hunts
+    if str(user.id) not in shiny_hunts or hunt not in [h[0] for h in shiny_hunts[str(user.id)]]:
+        await ctx.send(decorate_message(f"❌ You don't have a Shiny Hunt for '{hunt}' in your list."))
+        return
+    
+    # Busca la entrada y marca como completada
+    hunt_data = next(h for h in shiny_hunts[str(user.id)] if h[0] == hunt)
+    
+    if 'completed' in hunt_data:  # Verifica si ya está completado
+        await ctx.send(decorate_message(f"❌ The Shiny Hunt for '{hunt}' is already marked as completed."))
+    else:
+        hunt_data.append('completed')  # Marca el hunt como completado
+        save_shiny_hunts()  # Guarda los cambios en el archivo JSON
+        await ctx.send(decorate_message(f"✅ The Shiny Hunt for '{hunt}' has been marked as completed!"))
+
 # Comando para ver el Shiny Hunt de un usuario
 @bot.command()
 async def shinylist(ctx, member: discord.Member = None):
@@ -85,19 +138,27 @@ async def shinylist(ctx, member: discord.Member = None):
 
     if shiny_hunts[str(member.id)]:
         # Mostrar tipo de shiny con emoji sin repetir Pokémon
-        hunts = "\n".join([f"{hunt[0]} {get_pokemon_emoji(hunt[1][0])} ({', '.join(hunt[1])})" for hunt in shiny_hunts[str(member.id)]])
+        hunts = "\n".join([f"{hunt[0]} {get_pokemon_emoji(hunt[1][0])} ({', '.join(hunt[1])})" + (" - COMPLETED" if 'completed' in hunt else "") for hunt in shiny_hunts[str(member.id)]])
         await ctx.send(decorate_message(f"{member.display_name}'s Shiny Hunts list:\n{hunts}"))
     else:
         await ctx.send(decorate_message(f"{member.display_name} has no Shiny Hunts in their list."))
+
         
 # Comando para ver todos los usuarios con listas de Shiny Hunts
 @bot.command()
 async def allshiny(ctx):
-    users_with_hunts = [f"<@{user_id}>" for user_id in shiny_hunts if shiny_hunts[user_id]]  # Lista de usuarios con Shiny Hunts
-    if users_with_hunts:
-        await ctx.send(decorate_message(f"Users with Shiny Hunts: {', '.join(users_with_hunts)}"))
-    else:
-        await ctx.send(decorate_message("No users have Shiny Hunts in their lists."))
+    if not shiny_hunts:
+        await ctx.send(decorate_message("❌ No users have Shiny Hunts in their lists."))
+        return
+
+    response = "✨ **Users with Shiny Hunts:**\n"
+    for user_id, hunts in shiny_hunts.items():
+        member = ctx.guild.get_member(int(user_id))
+        if member and hunts:
+            hunts_details = "\n".join([f"{hunt[0]} {get_pokemon_emoji(hunt[1][0])} ({', '.join(hunt[1])})" for hunt in hunts])
+            response += f"\n{member.display_name}:\n{hunts_details}"
+
+    await ctx.send(decorate_message(response))
 
 # Comando para agregar un Shiny Hunt
 @bot.command()
@@ -174,12 +235,15 @@ async def shinyhelp(ctx):
         "Shows the total number of shiny hunts in your list.\n\n"
         "🧹 **!cleanshiny**\n"
         "Clears all shiny hunts from your list.\n\n"
+        "✅ **!completehunt <hunt name>**\n"
+        "Marks a Shiny Hunt as completed without removing it from your list. Use this command when you catch the shiny Pokémon.\n\n"
         "ℹ️ **!shinyhelp**\n"
         "Shows this help message with all available commands and their usage.\n\n"
         "👥 **!allshiny**\n"
         "Shows a list of all users who have at least one Shiny Hunt in their list."
     )
     await ctx.send(help_message)
+
 
 # Cargar las listas de Shiny Hunts desde el archivo al iniciar el bot
 def load_shiny_hunts():
